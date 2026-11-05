@@ -1,0 +1,12 @@
+{
+  "title": "SkillSync",
+  "language": "en",
+  "description": "Empowering undergraduate computer science students by aligning academic skills with industry demands, offering tailored resources and direct connections to employers.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
