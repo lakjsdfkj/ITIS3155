@@ -1,0 +1,2 @@
+# ADDED: Marks the migration provider for Prisma Migrate.
+provider = "sqlite"

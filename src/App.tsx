@@ -3,6 +3,7 @@ import Icon, { type IconName } from "./icons"
 import Feed from "./Feed"
 import Handbook from "./Handbook"
 import ProfileBuilder from "./ProfileBuilder"
+import RollingFeed from "./RollingFeed"
 
 function Logo() {
   return (
@@ -237,7 +238,11 @@ function App() {
                   go("News Feed")
                 }
               }}
-              placeholder="Search listings, companies, skills..."
+              placeholder={
+                activeNav === "News Feed"
+                  ? "Search news, people, or companies..."
+                  : "Search listings, companies, skills..."
+              }
               aria-label="Search SkillSync"
             />
             {searchQuery ? (
@@ -269,7 +274,10 @@ function App() {
         </header>
 
         <main>
-          {(activeNav === "News Feed" || activeNav === "Opportunities") && (
+          {activeNav === "News Feed" && (
+            <RollingFeed query={searchQuery} />
+          )}
+          {activeNav === "Opportunities" && (
             <Feed
               onOpenSkill={openSkill}
               query={searchQuery}

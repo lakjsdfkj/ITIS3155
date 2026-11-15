@@ -1,0 +1,5 @@
+# DEVELOPMENT ONLY: never commit local SQLite databases or their journal files.
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

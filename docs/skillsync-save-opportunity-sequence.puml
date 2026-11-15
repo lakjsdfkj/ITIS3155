@@ -1,0 +1,56 @@
+@startuml
+' ADDED: Proposed save flow; the API currently implements health and opportunity listing only.
+title SkillSync — Browse and Save an Opportunity
+autonumber
+
+actor User
+boundary "Application Interface\n(React UI)" as UI
+control "Application Logic\n(OpportunityService)" as Service
+entity "ORM / Data Access\n(Prisma Client)" as ORM
+database "SQLite Database" as DB
+
+note over UI,DB
+  The local Express API, Vite proxy, Prisma, and SQLite are configured.
+  Opportunity saving shown below remains proposed and is not implemented.
+end note
+
+User -> UI: Open Opportunities and set search/filters
+UI -> Service: listOpportunities(filters)
+Service -> Service: Validate and normalize filters
+Service -> ORM: opportunity.findMany(where, include)
+ORM -> DB: SELECT opportunities with company and skills
+DB --> ORM: Matching opportunity records
+ORM --> Service: Opportunities and related data
+Service --> UI: Opportunity results
+UI --> User: Display matching opportunities
+
+User -> UI: Select "Save to my plan"
+UI -> Service: saveOpportunity(userId, opportunityId)
+Service -> Service: Resolve student's profile
+Service -> ORM: studentProfile.findUnique(userId)
+ORM -> DB: SELECT student profile by user ID
+DB --> ORM: Profile record
+ORM --> Service: Profile or no result
+
+alt Profile exists
+  Service -> ORM: opportunity.findUnique(opportunityId)
+  ORM -> DB: SELECT opportunity by ID
+  DB --> ORM: Opportunity record or no result
+  ORM --> Service: Opportunity or no result
+  alt Opportunity exists
+    Service -> ORM: savedOpportunity.upsert(profileId, opportunityId)
+    ORM -> DB: INSERT save or keep existing composite-key row
+    DB --> ORM: SavedOpportunity record
+    ORM --> Service: Saved status
+    Service --> UI: Save confirmed
+    UI --> User: Show saved state
+  else Opportunity not found
+    Service --> UI: Not-found error
+    UI --> User: Show error; do not mark as saved
+  end
+else Profile missing
+  Service --> UI: Profile-required error
+  UI --> User: Prompt to complete profile
+end
+
+@enduml
