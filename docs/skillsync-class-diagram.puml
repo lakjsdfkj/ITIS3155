@@ -1,0 +1,266 @@
+@startuml
+' ADDED: UML class diagram derived from prisma/schema.prisma and its SQLite migration.
+title SkillSync Domain Model
+hide methods
+skinparam classAttributeIconSize 0
+
+class User {
+  +id: String {PK}
+  +email: String {UK, required}
+  +passwordHash: String {required}
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class StudentProfile {
+  +id: String {PK}
+  +userId: String {FK, UK}
+  +displayName: String {required}
+  +major: String [0..1]
+  +concentration: String [0..1]
+  +bio: String [0..1] {max 400 chars}
+  +photoStorageKey: String [0..1]
+  +resumeStorageKey: String [0..1]
+}
+
+class Company {
+  +id: String {PK}
+  +name: String {UK, required}
+  +initials: String {required}
+  +logoUrl: String [0..1]
+  +industry: String [0..1]
+}
+
+class Interest {
+  +id: String {PK}
+  +name: String {UK, required}
+}
+
+class Skill {
+  +id: String {PK}
+  +name: String {UK, required}
+  +category: String {required}
+  +level: SkillLevel {required}
+  +estimatedHours: Int {> 0}
+  +summary: String {required}
+  +why: String {required}
+}
+
+enum SkillLevel {
+  Foundational
+  Intermediate
+  Advanced
+}
+
+class SkillTopic {
+  +id: String {PK}
+  +skillId: String {FK}
+  +position: Int {> 0}
+  +title: String {required}
+}
+
+class Credential {
+  +id: String {PK}
+  +name: String {UK, required}
+}
+
+class SkillCredential {
+  +skillId: String {PK, FK}
+  +credentialId: String {PK, FK}
+}
+
+class StudentProfileInterest {
+  +profileId: String {PK, FK}
+  +interestId: String {PK, FK}
+}
+
+class StudentProfileSkill {
+  +profileId: String {PK, FK}
+  +skillId: String {PK, FK}
+  +source: ProfileSkillSource
+  +proficiencyLevel: String [0..1]
+}
+
+enum ProfileSkillSource {
+  self_reported
+  resume
+  assessment
+}
+
+class Opportunity {
+  +id: String {PK}
+  +companyId: String {FK}
+  +interestId: String {FK}
+  +title: String {required}
+  +type: OpportunityType {required}
+  +summary: String {required}
+  +details: String {required}
+  +team: String {required}
+  +duration: String {required}
+  +location: String {required}
+  +deadline: DateTime [0..1]
+  +postedAt: DateTime
+  +status: OpportunityStatus
+  +featured: Boolean
+}
+
+enum OpportunityType {
+  Internship
+  Project
+  Co-op
+}
+
+enum OpportunityStatus {
+  Draft
+  Open
+  Closed
+}
+
+class OpportunitySkill {
+  +opportunityId: String {PK, FK}
+  +skillId: String {PK, FK}
+  +requirementType: RequirementType
+}
+
+enum RequirementType {
+  required
+  desired
+}
+
+class OpportunityDeliverable {
+  +id: String {PK}
+  +opportunityId: String {FK}
+  +position: Int {> 0}
+  +description: String {required}
+}
+
+class SavedOpportunity {
+  +profileId: String {PK, FK}
+  +opportunityId: String {PK, FK}
+  +savedAt: DateTime
+}
+
+class NewsPost {
+  +id: String {PK}
+  +source: NewsSource {required}
+  +authorName: String {required}
+  +byline: String {required}
+  +initials: String {required}
+  +authorUserId: String [0..1] {FK}
+  +companyId: String [0..1] {FK}
+  +postedAt: DateTime
+  +title: String {required}
+  +body: String {required}
+  +callout: String [0..1]
+  +reactions: Int {>= 0}
+  +rating: Int [0..1] {1..5}
+}
+
+enum NewsSource {
+  Company
+  Employee
+  Student
+  School
+}
+
+class NewsPostInterest {
+  +postId: String {PK, FK}
+  +interestId: String {PK, FK}
+}
+
+class CareerPathway {
+  +id: String {PK}
+  +profileId: String {FK}
+  +title: String {required}
+  +description: String [0..1]
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class PathwayStep {
+  +id: String {PK}
+  +pathwayId: String {FK}
+  +position: Int {> 0}
+  +title: String {required}
+  +description: String {required}
+  +status: PathwayStepStatus
+  +estimatedHours: Int [0..1]
+  +skillId: String [0..1] {FK}
+  +credentialId: String [0..1] {FK}
+  .. constraint: skillId or credentialId must be present ..
+}
+
+enum PathwayStepStatus {
+  complete
+  in_progress
+  suggested
+  goal
+  alternate
+}
+
+class PathwayResource {
+  +id: String {PK}
+  +stepId: String {FK}
+  +position: Int {> 0}
+  +title: String {required}
+}
+
+User "1" -- "0..1" StudentProfile : owns
+User "0..1" -- "0..*" NewsPost : authors
+Company "1" -- "0..*" Opportunity : publishes
+Company "0..1" -- "0..*" NewsPost : referenced by
+Interest "1" -- "0..*" Opportunity : classifies
+StudentProfile "1" -- "0..*" StudentProfileInterest
+Interest "1" -- "0..*" StudentProfileInterest
+StudentProfile "1" -- "0..*" StudentProfileSkill
+Skill "1" -- "0..*" StudentProfileSkill
+Skill "1" -- "0..*" SkillTopic : has
+Skill "1" -- "0..*" SkillCredential
+Credential "1" -- "0..*" SkillCredential
+Opportunity "1" -- "0..*" OpportunitySkill
+Skill "1" -- "0..*" OpportunitySkill
+Opportunity "1" -- "0..*" OpportunityDeliverable : includes
+StudentProfile "1" -- "0..*" SavedOpportunity
+Opportunity "1" -- "0..*" SavedOpportunity
+NewsPost "1" -- "0..*" NewsPostInterest
+Interest "1" -- "0..*" NewsPostInterest
+StudentProfile "1" -- "0..*" CareerPathway : owns
+CareerPathway "1" -- "0..*" PathwayStep : ordered by position
+Skill "0..1" -- "0..*" PathwayStep : target
+Credential "0..1" -- "0..*" PathwayStep : validates
+PathwayStep "1" -- "0..*" PathwayResource : provides
+
+note right of StudentProfileInterest
+  Composite primary key:
+  (profileId, interestId)
+end note
+note right of StudentProfileSkill
+  Composite primary key:
+  (profileId, skillId)
+end note
+note right of SkillCredential
+  Composite primary key:
+  (skillId, credentialId)
+end note
+note right of OpportunitySkill
+  Composite primary key:
+  (opportunityId, skillId)
+  A skill cannot be both required and desired
+  for the same opportunity.
+end note
+note right of SavedOpportunity
+  Composite primary key:
+  (profileId, opportunityId)
+  Prevents duplicate saves.
+end note
+note bottom of OpportunityDeliverable
+  Unique (opportunityId, position)
+end note
+note bottom of PathwayStep
+  Unique (pathwayId, position)
+end note
+note bottom of PathwayResource
+  Unique (stepId, position)
+end note
+
+@enduml

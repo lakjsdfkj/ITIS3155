@@ -1,0 +1,148 @@
+%% ADDED: Mermaid ER model equivalent to prisma/schema.prisma.
+erDiagram
+    USER ||--o| STUDENT_PROFILE : has
+    USER ||--o{ NEWS_POST : authors
+    COMPANY ||--o{ OPPORTUNITY : publishes
+    COMPANY o|--o{ NEWS_POST : appears_in
+    INTEREST ||--o{ OPPORTUNITY : categorizes
+    STUDENT_PROFILE ||--o{ STUDENT_PROFILE_INTEREST : follows
+    INTEREST ||--o{ STUDENT_PROFILE_INTEREST : selected_by
+    STUDENT_PROFILE ||--o{ STUDENT_PROFILE_SKILL : lists
+    SKILL ||--o{ STUDENT_PROFILE_SKILL : listed_by
+    SKILL ||--o{ SKILL_TOPIC : contains
+    SKILL ||--o{ SKILL_CREDENTIAL : maps_to
+    CREDENTIAL ||--o{ SKILL_CREDENTIAL : mapped_from
+    OPPORTUNITY ||--o{ OPPORTUNITY_SKILL : requires_or_prefers
+    SKILL ||--o{ OPPORTUNITY_SKILL : requested_by
+    OPPORTUNITY ||--o{ OPPORTUNITY_DELIVERABLE : includes
+    STUDENT_PROFILE ||--o{ SAVED_OPPORTUNITY : saves
+    OPPORTUNITY ||--o{ SAVED_OPPORTUNITY : saved_by
+    NEWS_POST ||--o{ NEWS_POST_INTEREST : tagged_with
+    INTEREST ||--o{ NEWS_POST_INTEREST : tags
+    STUDENT_PROFILE ||--o{ CAREER_PATHWAY : owns
+    CAREER_PATHWAY ||--o{ PATHWAY_STEP : orders
+    SKILL o|--o{ PATHWAY_STEP : targets
+    CREDENTIAL o|--o{ PATHWAY_STEP : validates
+    PATHWAY_STEP ||--o{ PATHWAY_RESOURCE : offers
+
+    USER {
+        string id PK
+        string email UK
+        string password_hash
+        datetime created_at
+        datetime updated_at
+    }
+    STUDENT_PROFILE {
+        string id PK
+        string user_id FK,UK
+        string display_name
+        string major
+        string concentration
+        string bio
+        string photo_storage_key
+        string resume_storage_key
+    }
+    COMPANY {
+        string id PK
+        string name UK
+        string initials
+        string logo_url
+        string industry
+    }
+    INTEREST {
+        string id PK
+        string name UK
+    }
+    SKILL {
+        string id PK
+        string name UK
+        string category
+        string level
+        int estimated_hours
+        string summary
+        string why
+    }
+    CREDENTIAL {
+        string id PK
+        string name UK
+    }
+    OPPORTUNITY {
+        string id PK
+        string company_id FK
+        string interest_id FK
+        string title
+        string type
+        string status
+        datetime deadline
+        datetime posted_at
+    }
+    NEWS_POST {
+        string id PK
+        string source
+        string author_user_id FK
+        string company_id FK
+        datetime posted_at
+        string title
+        int reactions
+        int rating
+    }
+    CAREER_PATHWAY {
+        string id PK
+        string profile_id FK
+        string title
+        datetime created_at
+    }
+    PATHWAY_STEP {
+        string id PK
+        string pathway_id FK
+        int position
+        string status
+        string skill_id FK
+        string credential_id FK
+    }
+    STUDENT_PROFILE_INTEREST {
+        string profile_id PK,FK
+        string interest_id PK,FK
+    }
+    STUDENT_PROFILE_SKILL {
+        string profile_id PK,FK
+        string skill_id PK,FK
+        string source
+        string proficiency_level
+    }
+    SKILL_TOPIC {
+        string id PK
+        string skill_id FK
+        int position
+        string title
+    }
+    SKILL_CREDENTIAL {
+        string skill_id PK,FK
+        string credential_id PK,FK
+    }
+    OPPORTUNITY_SKILL {
+        string opportunity_id PK,FK
+        string skill_id PK,FK
+        string requirement_type
+    }
+    OPPORTUNITY_DELIVERABLE {
+        string id PK
+        string opportunity_id FK
+        int position
+        string description
+    }
+    SAVED_OPPORTUNITY {
+        string profile_id PK,FK
+        string opportunity_id PK,FK
+        datetime saved_at
+    }
+    NEWS_POST_INTEREST {
+        string post_id PK,FK
+        string interest_id PK,FK
+    }
+    PATHWAY_RESOURCE {
+        string id PK
+        string step_id FK
+        int position
+        string title
+    }

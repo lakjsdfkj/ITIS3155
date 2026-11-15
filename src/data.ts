@@ -182,6 +182,14 @@ export const fields = [
   "Cloud & Security",
 ] as const
 
+export const interests = [
+  "Bioinformatics",
+  "Data Engineering",
+  "Health-tech",
+  "Machine Learning",
+  "Cloud & Security",
+] as const
+
 export type Post = {
   id: string
   company: string

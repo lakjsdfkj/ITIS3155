@@ -1,15 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent } from "react"
 import Icon from "./icons"
+import { interests } from "./data"
 
 type Props = { onBack: () => void }
-
-const interests = [
-  "Bioinformatics",
-  "Data Engineering",
-  "Health-tech",
-  "Machine Learning",
-  "Cloud & Security",
-]
 const MAX_BIO = 400
 
 function Dropzone({

@@ -1,0 +1,275 @@
+// ADDED: Initial persistence model for SkillSync; comments/markers identify this reviewable addition.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  // DEVELOPMENT ONLY: database file is kept beside this schema and ignored by Git.
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String          @map("password_hash")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  profile      StudentProfile?
+  newsPosts    NewsPost[]      @relation("NewsAuthor")
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id                 String                   @id @default(cuid())
+  userId             String                   @unique @map("user_id")
+  displayName        String                   @map("display_name")
+  major              String?
+  concentration      String?
+  // SQL migration enforces the current profile editor's 400-character limit.
+  bio                String?
+  photoStorageKey    String?                  @map("photo_storage_key")
+  resumeStorageKey   String?                  @map("resume_storage_key")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interests          StudentProfileInterest[]
+  skills             StudentProfileSkill[]
+  savedOpportunities SavedOpportunity[]
+  pathways           CareerPathway[]
+
+  @@map("student_profiles")
+}
+
+model Company {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  initials      String
+  logoUrl       String?       @map("logo_url")
+  industry      String?
+  opportunities Opportunity[]
+  newsPosts     NewsPost[]
+
+  @@map("companies")
+}
+
+model Interest {
+  id            String                   @id @default(cuid())
+  name          String                   @unique
+  profiles      StudentProfileInterest[]
+  opportunities Opportunity[]
+  newsPosts     NewsPostInterest[]
+
+  @@map("interests")
+}
+
+model StudentProfileInterest {
+  profileId  String         @map("profile_id")
+  interestId String         @map("interest_id")
+  profile    StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  interest   Interest       @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, interestId])
+  @@map("student_profile_interests")
+}
+
+model Skill {
+  id             String                @id
+  name           String                @unique
+  category       String
+  // SQLite CHECK constraints for controlled values live in the SQL migration.
+  level          String
+  estimatedHours Int                   @map("estimated_hours")
+  summary        String
+  why            String
+  topics         SkillTopic[]
+  credentials    SkillCredential[]
+  opportunities  OpportunitySkill[]
+  profiles       StudentProfileSkill[]
+  pathwaySteps   PathwayStep[]
+
+  @@map("skills")
+}
+
+model SkillTopic {
+  id       String @id @default(cuid())
+  skillId  String @map("skill_id")
+  position Int
+  title    String
+  skill    Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, position])
+  @@map("skill_topics")
+}
+
+model Credential {
+  id           String            @id @default(cuid())
+  name         String            @unique
+  skillLinks   SkillCredential[]
+  pathwaySteps PathwayStep[]
+
+  @@map("credentials")
+}
+
+model SkillCredential {
+  skillId      String     @map("skill_id")
+  credentialId String     @map("credential_id")
+  skill        Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@id([skillId, credentialId])
+  @@map("skill_credentials")
+}
+
+model StudentProfileSkill {
+  profileId        String         @map("profile_id")
+  skillId          String         @map("skill_id")
+  // SQL migration restricts this to self_reported, resume, or assessment.
+  source           String         @default("self_reported")
+  proficiencyLevel String?        @map("proficiency_level")
+  profile          StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill            Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, skillId])
+  @@map("student_profile_skills")
+}
+
+model Opportunity {
+  id           String                   @id @default(cuid())
+  companyId    String                   @map("company_id")
+  interestId   String                   @map("interest_id")
+  title        String
+  // SQL migration restricts type and status to the values used by the UI.
+  type         String
+  summary      String
+  details      String
+  team         String
+  duration     String
+  location     String
+  deadline     DateTime?
+  postedAt     DateTime                 @default(now()) @map("posted_at")
+  status       String                   @default("Open")
+  featured     Boolean                  @default(false)
+  company      Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  interest     Interest                 @relation(fields: [interestId], references: [id], onDelete: Restrict)
+  skills       OpportunitySkill[]
+  deliverables OpportunityDeliverable[]
+  savedBy      SavedOpportunity[]
+
+  @@index([companyId])
+  @@index([interestId, status])
+  @@map("opportunities")
+}
+
+model OpportunitySkill {
+  opportunityId   String      @map("opportunity_id")
+  skillId         String      @map("skill_id")
+  // SQL migration restricts this to required or desired.
+  requirementType String      @map("requirement_type")
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  skill           Skill       @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@id([opportunityId, skillId])
+  @@map("opportunity_skills")
+}
+
+model OpportunityDeliverable {
+  id            String      @id @default(cuid())
+  opportunityId String      @map("opportunity_id")
+  position      Int
+  description   String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, position])
+  @@map("opportunity_deliverables")
+}
+
+model SavedOpportunity {
+  profileId     String         @map("profile_id")
+  opportunityId String         @map("opportunity_id")
+  savedAt       DateTime       @default(now()) @map("saved_at")
+  profile       StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, opportunityId])
+  @@map("saved_opportunities")
+}
+
+model NewsPost {
+  id           String             @id @default(cuid())
+  // SQL migration restricts source and validates reactions/rating ranges.
+  source       String
+  authorName   String             @map("author_name")
+  byline       String
+  initials     String
+  authorUserId String?            @map("author_user_id")
+  companyId    String?            @map("company_id")
+  postedAt     DateTime           @default(now()) @map("posted_at")
+  title        String
+  body         String
+  callout      String?
+  reactions    Int                @default(0)
+  rating       Int?
+  author       User?              @relation("NewsAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  company      Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  interests    NewsPostInterest[]
+
+  @@index([postedAt])
+  @@map("news_posts")
+}
+
+model NewsPostInterest {
+  postId     String   @map("post_id")
+  interestId String   @map("interest_id")
+  post       NewsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([postId, interestId])
+  @@map("news_post_interests")
+}
+
+model CareerPathway {
+  id          String         @id @default(cuid())
+  profileId   String         @map("profile_id")
+  title       String
+  description String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  profile     StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  steps       PathwayStep[]
+
+  @@index([profileId])
+  @@map("career_pathways")
+}
+
+model PathwayStep {
+  id             String            @id @default(cuid())
+  pathwayId      String            @map("pathway_id")
+  position       Int
+  title          String
+  description    String
+  // SQL migration restricts status and requires a related skill or credential.
+  status         String            @default("suggested")
+  estimatedHours Int?              @map("estimated_hours")
+  skillId        String?           @map("skill_id")
+  credentialId   String?           @map("credential_id")
+  pathway        CareerPathway     @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  skill          Skill?            @relation(fields: [skillId], references: [id], onDelete: SetNull)
+  credential     Credential?       @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  resources      PathwayResource[]
+
+  @@unique([pathwayId, position])
+  @@map("pathway_steps")
+}
+
+model PathwayResource {
+  id       String      @id @default(cuid())
+  stepId   String      @map("step_id")
+  position Int
+  title    String
+  step     PathwayStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, position])
+  @@map("pathway_resources")
+}
