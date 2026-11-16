@@ -1,9 +1,33 @@
-<<<<<<< HEAD
+# Dependencies
 node_modules/
+
+# Environment Variables
+.env*
+!.env.example
+
+# Local MCP Configuration (may contain access tokens)
+mcp.json
+mcp-config.json
+
+# Private Keys
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Local Database Files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
 dist/
 build/
 .cache/
-.env*
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -20,7 +44,3 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
-=======
-mcp.json
-mcp-config.json
->>>>>>> origin/main
