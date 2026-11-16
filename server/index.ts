@@ -6,11 +6,104 @@ import express, {
   type Response,
 } from "express"
 
+import { interests } from "../src/data.ts"
 import { prisma } from "./db.js"
 
 const app = express()
 
 const port = Number(process.env.API_PORT ?? 3001)
+const demoProfileEmail = "student.demo@example.test"
+const allowedInterests = new Set<string>(interests)
+
+function isInterestSelection(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 1 &&
+    value.length <= 5 &&
+    value.every(
+      (interest: unknown): interest is string =>
+        typeof interest === "string" && allowedInterests.has(interest),
+    ) &&
+    new Set(value).size === value.length
+  )
+}
+
+app.use(express.json())
+
+app.get("/api/profile/interests", async (_request, response, next) => {
+  try {
+    const profile = await prisma.studentProfile.findFirst({
+      where: { user: { email: demoProfileEmail } },
+      include: { interests: { include: { interest: true } } },
+    })
+
+    if (!profile) {
+      response.status(404).json({ error: "Demo student profile not found." })
+      return
+    }
+
+    response.json({
+      interests: profile.interests.map(({ interest }) => interest.name),
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.put("/api/profile/interests", async (request, response, next) => {
+  try {
+    const requestInterests: unknown = request.body?.interests
+    if (!isInterestSelection(requestInterests)) {
+      response.status(400).json({
+        error: "Choose between 1 and 5 unique valid fields of interest.",
+      })
+      return
+    }
+    const selectedInterests = requestInterests
+
+    const profile = await prisma.studentProfile.findFirst({
+      where: { user: { email: demoProfileEmail } },
+      select: { id: true },
+    })
+
+    if (!profile) {
+      response.status(404).json({ error: "Demo student profile not found." })
+      return
+    }
+
+    const records = await prisma.interest.findMany({
+      where: { name: { in: selectedInterests } },
+      select: { id: true, name: true },
+    })
+    if (records.length !== selectedInterests.length) {
+      throw new Error("A selected field of interest is missing from the database.")
+    }
+
+    const interestIds = new Map(
+      records.map(({ id, name }) => [name, id] as const),
+    )
+    const profileInterests = selectedInterests.map((name) => {
+      const interestId = interestIds.get(name)
+      if (!interestId) {
+        throw new Error(`Selected field of interest is missing: ${name}`)
+      }
+      return { profileId: profile.id, interestId }
+    })
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.studentProfileInterest.deleteMany({
+        where: { profileId: profile.id },
+      })
+      await transaction.studentProfileInterest.createMany({
+        data: profileInterests,
+      })
+    })
+
+    response.json({ interests: selectedInterests })
+  } catch (error) {
+    next(error)
+  }
+})
 
 app.get("/api/health/db", async (_request, response, next) => {
   try {
@@ -66,7 +159,19 @@ app.use(
   ) => {
     console.error("Development API request failed:", error)
 
-    response.status(500).json({ error: "Internal server error" })
+    const statusCode =
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof error.status === "number" &&
+      error.status >= 400 &&
+      error.status < 500
+        ? error.status
+        : 500
+    response.status(statusCode).json({
+      error:
+        statusCode === 400 ? "Invalid request payload" : "Internal server error",
+    })
   },
 )
 
