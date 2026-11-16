@@ -4,6 +4,7 @@ import Feed from "./Feed"
 import Handbook from "./Handbook"
 import ProfileBuilder from "./ProfileBuilder"
 import RollingFeed from "./RollingFeed"
+import { type Interest } from "./data"
 
 function Logo() {
   return (
@@ -111,6 +112,9 @@ const recommendations = [
 
 function App() {
   const [activeNav, setActiveNav] = useState("News Feed")
+  const [selectedInterests, setSelectedInterests] = useState<Interest[]>([
+    "Bioinformatics",
+  ])
   const [skillId, setSkillId] = useState("python")
   const [cameFrom, setCameFrom] = useState("News Feed")
   const [saved, setSaved] = useState(false)
@@ -140,6 +144,24 @@ function App() {
     setCameFrom(activeNav === "Skill library" ? "News Feed" : activeNav)
     setSkillId(id)
     go("Skill library")
+  }
+  const saveInterests = async (interests: Interest[]) => {
+    const response = await fetch("/api/profile/interests", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interests }),
+    })
+    const result = (await response.json()) as {
+      interests?: Interest[]
+      error?: string
+    }
+    if (!response.ok) {
+      throw new Error(result.error ?? "Could not save your fields of interest.")
+    }
+    if (!Array.isArray(result.interests)) {
+      throw new Error("The saved interests response was invalid.")
+    }
+    setSelectedInterests(result.interests)
   }
   const isOverview = ![
     "News Feed",
@@ -192,7 +214,7 @@ function App() {
           </span>
           <p className="eyebrow">Weekly pulse</p>
           <strong>2 new matches</strong>
-          <p>Based on your bioinformatics interests.</p>
+          <p>Based on your {selectedInterests.join(" and ")} interests.</p>
           <button>
             View matches <Icon name="arrow" size={15} />
           </button>
@@ -201,7 +223,7 @@ function App() {
           <div className="avatar">DO</div>
           <div>
             <strong>Dakota Oregon</strong>
-            <span>Computer Science · Bioinformatics</span>
+            <span>Computer Science · {selectedInterests.join(", ")}</span>
           </div>
           <button
             aria-label="Open profile builder"
@@ -293,7 +315,12 @@ function App() {
             />
           )}
           {activeNav === "Profile" && (
-            <ProfileBuilder onBack={() => go("News Feed")} />
+            <ProfileBuilder
+              onBack={() => go("News Feed")}
+              selectedInterests={selectedInterests}
+              onInterestsChange={setSelectedInterests}
+              onSave={saveInterests}
+            />
           )}
           {isOverview && (
             <>
@@ -302,8 +329,8 @@ function App() {
                   <p className="kicker">Monday, October 12</p>
                   <h1>Good morning, Dakota.</h1>
                   <p>
-                    Your bioinformatics internship plan is taking shape. Here’s
-                    where to focus next.
+                    Your {selectedInterests.join(" and ")} career plan is taking
+                    shape. Here’s where to focus next.
                   </p>
                 </div>
                 <button className="primary-button">
@@ -316,7 +343,7 @@ function App() {
                   <div>
                     <p className="eyebrow">Your suggested pathway</p>
                     <h2>
-                      Bioinformatics data internship · Certification pathway
+                      {selectedInterests.join(" + ")} · Certification pathway
                     </h2>
                   </div>
                   <div className="pathway-actions">
@@ -354,7 +381,7 @@ function App() {
                       </div>
                       <div>
                         <dt>Interests</dt>
-                        <dd>Genomics & health-tech</dd>
+                        <dd>{selectedInterests.join(", ")}</dd>
                       </div>
                     </dl>
                     <span className="resume-status">
@@ -478,8 +505,8 @@ function App() {
                 <div className="pathway-footer">
                   <span>
                     <Icon name="sparkles" size={15} /> This route is recommended
-                    from your profile, HelixNova employee guidance, and 6 active
-                    bioinformatics internships.
+                    across {selectedInterests.length} selected field
+                    {selectedInterests.length === 1 ? "" : "s"} in your profile.
                   </span>
                   <button onClick={() => setSelectedNode("product")}>
                     Compare compliance route

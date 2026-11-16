@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState, type DragEvent } from "react"
 import Icon from "./icons"
-import { interests } from "./data"
+import { interests, type Interest } from "./data"
 
-type Props = { onBack: () => void }
+const validInterestNames = new Set<string>(interests)
+
+type Props = {
+  onBack: () => void
+  selectedInterests: Interest[]
+  onInterestsChange: (interests: Interest[]) => void
+  onSave: (interests: Interest[]) => Promise<void>
+}
 const MAX_BIO = 400
+const MAX_INTERESTS = 5
 
 function Dropzone({
   kind,
@@ -89,14 +97,21 @@ function Dropzone({
   )
 }
 
-export default function ProfileBuilder({ onBack }: Props) {
+export default function ProfileBuilder({
+  onBack,
+  selectedInterests,
+  onInterestsChange,
+  onSave,
+}: Props) {
   const [showPw, setShowPw] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string>()
   const [resume, setResume] = useState<File | null>(null)
   const [bio, setBio] = useState("")
-  const [field, setField] = useState("Bioinformatics")
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loadingInterests, setLoadingInterests] = useState(true)
+  const [interestError, setInterestError] = useState("")
 
   useEffect(() => {
     if (!photo) return setPhotoUrl(undefined)
@@ -104,6 +119,68 @@ export default function ProfileBuilder({ onBack }: Props) {
     setPhotoUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [photo])
+
+  useEffect(() => {
+    let active = true
+
+    fetch("/api/profile/interests")
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          interests?: Interest[]
+          error?: string
+        }
+        if (!response.ok) {
+          throw new Error(result.error ?? "Could not load saved interests.")
+        }
+        if (
+          !Array.isArray(result.interests) ||
+          result.interests.length < 1 ||
+          result.interests.length > MAX_INTERESTS ||
+          !result.interests.every(
+            (interest) =>
+              typeof interest === "string" && validInterestNames.has(interest),
+          )
+        ) {
+          throw new Error("The saved interests response was invalid.")
+        }
+        return result.interests as Interest[]
+      })
+      .then((savedInterests) => {
+        if (active) onInterestsChange(savedInterests)
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setInterestError(
+            error instanceof Error
+              ? error.message
+              : "Could not load saved interests.",
+          )
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingInterests(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [onInterestsChange])
+
+  const toggleInterest = (interest: Interest) => {
+    setSaved(false)
+    setInterestError("")
+    if (selectedInterests.includes(interest)) {
+      if (selectedInterests.length === 1) {
+        setInterestError("Select at least one field of interest.")
+        return
+      }
+      onInterestsChange(selectedInterests.filter((item) => item !== interest))
+      return
+    }
+    if (selectedInterests.length < MAX_INTERESTS) {
+      onInterestsChange([...selectedInterests, interest])
+    }
+  }
 
   const complete =
     40 +
@@ -213,33 +290,48 @@ export default function ProfileBuilder({ onBack }: Props) {
               </small>
             </label>
             <div className="field">
-              <span id="interest-label">Interested field</span>
-              <div className="select-wrap">
-                <select
-                  value={field}
-                  onChange={(e) => setField(e.target.value)}
-                  aria-labelledby="interest-label"
-                >
-                  {interests.map((i) => (
-                    <option key={i}>{i}</option>
-                  ))}
-                </select>
-              </div>
+              <span id="interest-label">Fields of interest</span>
               <p className="field-hint">
-                Your News Feed will lead with {field} projects.
+                Select up to {MAX_INTERESTS} fields. Your pathway and
+                recommendations will reflect your selections.
               </p>
               <div className="chip-row">
                 {interests.map((i) => (
                   <button
                     key={i}
-                    className={i === field ? "chip active" : "chip"}
-                    aria-pressed={i === field}
-                    onClick={() => setField(i)}
+                    type="button"
+                    className={
+                      selectedInterests.includes(i) ? "chip active" : "chip"
+                    }
+                    aria-pressed={selectedInterests.includes(i)}
+                    aria-label={
+                      selectedInterests.includes(i)
+                        ? `Remove ${i}`
+                        : `Add ${i}`
+                    }
+                    disabled={
+                      loadingInterests ||
+                      saving ||
+                      (!selectedInterests.includes(i) &&
+                        selectedInterests.length >= MAX_INTERESTS)
+                    }
+                    onClick={() => toggleInterest(i)}
                   >
                     {i}
                   </button>
                 ))}
               </div>
+              <small className="counter">
+                {selectedInterests.length} / {MAX_INTERESTS} selected
+              </small>
+              {loadingInterests && (
+                <p className="field-hint">Loading saved interests…</p>
+              )}
+              {interestError && (
+                <p className="interest-error" role="alert">
+                  {interestError}
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -251,13 +343,27 @@ export default function ProfileBuilder({ onBack }: Props) {
         </button>
         <button
           className="primary-button"
-          onClick={() => {
-            setSaved(true)
-            setTimeout(() => setSaved(false), 2200)
+          disabled={saving || loadingInterests}
+          onClick={async () => {
+            setSaving(true)
+            setInterestError("")
+            try {
+              await onSave(selectedInterests)
+              setSaved(true)
+              setTimeout(() => setSaved(false), 2200)
+            } catch (error) {
+              setInterestError(
+                error instanceof Error
+                  ? error.message
+                  : "Could not save your profile.",
+              )
+            } finally {
+              setSaving(false)
+            }
           }}
         >
           <Icon name="check" size={17} />{" "}
-          {saved ? "Profile saved" : "Save profile"}
+          {saving ? "Saving…" : saved ? "Profile saved" : "Save profile"}
         </button>
       </div>
     </>

@@ -190,6 +190,8 @@ export const interests = [
   "Cloud & Security",
 ] as const
 
+export type Interest = (typeof interests)[number]
+
 export type Post = {
   id: string
   company: string
