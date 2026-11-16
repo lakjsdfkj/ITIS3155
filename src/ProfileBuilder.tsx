@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, type DragEvent } from "react"
 import Icon from "./icons"
-import { interests, type Interest } from "./data"
-
-const validInterestNames = new Set<string>(interests)
+import { interests, MAX_INTERESTS, type Interest } from "./data"
 
 type Props = {
   onBack: () => void
   selectedInterests: Interest[]
   onInterestsChange: (interests: Interest[]) => void
   onSave: (interests: Interest[]) => Promise<void>
+  loadingInterests: boolean
+  interestLoadError: string
 }
 const MAX_BIO = 400
-const MAX_INTERESTS = 5
 
 function Dropzone({
   kind,
@@ -102,6 +101,8 @@ export default function ProfileBuilder({
   selectedInterests,
   onInterestsChange,
   onSave,
+  loadingInterests,
+  interestLoadError,
 }: Props) {
   const [showPw, setShowPw] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
@@ -110,7 +111,6 @@ export default function ProfileBuilder({
   const [bio, setBio] = useState("")
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [loadingInterests, setLoadingInterests] = useState(true)
   const [interestError, setInterestError] = useState("")
 
   useEffect(() => {
@@ -119,52 +119,6 @@ export default function ProfileBuilder({
     setPhotoUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [photo])
-
-  useEffect(() => {
-    let active = true
-
-    fetch("/api/profile/interests")
-      .then(async (response) => {
-        const result = (await response.json()) as {
-          interests?: Interest[]
-          error?: string
-        }
-        if (!response.ok) {
-          throw new Error(result.error ?? "Could not load saved interests.")
-        }
-        if (
-          !Array.isArray(result.interests) ||
-          result.interests.length < 1 ||
-          result.interests.length > MAX_INTERESTS ||
-          !result.interests.every(
-            (interest) =>
-              typeof interest === "string" && validInterestNames.has(interest),
-          )
-        ) {
-          throw new Error("The saved interests response was invalid.")
-        }
-        return result.interests as Interest[]
-      })
-      .then((savedInterests) => {
-        if (active) onInterestsChange(savedInterests)
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setInterestError(
-            error instanceof Error
-              ? error.message
-              : "Could not load saved interests.",
-          )
-        }
-      })
-      .finally(() => {
-        if (active) setLoadingInterests(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [onInterestsChange])
 
   const toggleInterest = (interest: Interest) => {
     setSaved(false)
@@ -327,9 +281,9 @@ export default function ProfileBuilder({
               {loadingInterests && (
                 <p className="field-hint">Loading saved interests…</p>
               )}
-              {interestError && (
+              {(interestError || interestLoadError) && (
                 <p className="interest-error" role="alert">
-                  {interestError}
+                  {interestError || interestLoadError}
                 </p>
               )}
             </div>
