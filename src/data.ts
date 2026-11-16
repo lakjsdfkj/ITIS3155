@@ -192,6 +192,22 @@ export const interests = [
 
 export type Interest = (typeof interests)[number]
 
+const interestNames = new Set<string>(interests)
+export const MAX_INTERESTS = 5
+
+export function isInterestSelection(value: unknown): value is Interest[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 1 &&
+    value.length <= MAX_INTERESTS &&
+    value.every(
+      (interest: unknown): interest is Interest =>
+        typeof interest === "string" && interestNames.has(interest),
+    ) &&
+    new Set(value).size === value.length
+  )
+}
+
 export type Post = {
   id: string
   company: string

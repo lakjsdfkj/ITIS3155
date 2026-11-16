@@ -1,75 +1,42 @@
 // ADDED: Local development API for database connectivity and opportunity reads.
 
+import "dotenv/config"
+
 import express, {
   type NextFunction,
   type Request,
   type Response,
 } from "express"
 
-import { interests } from "../src/data.ts"
 import { prisma } from "./db.js"
+import {
+  createProfileInterestsRouter,
+  type ProfileInterestStore,
+} from "./profile-interests.js"
 
 const app = express()
 
 const port = Number(process.env.API_PORT ?? 3001)
 const demoProfileEmail = "student.demo@example.test"
-const allowedInterests = new Set<string>(interests)
-
-function isInterestSelection(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.length >= 1 &&
-    value.length <= 5 &&
-    value.every(
-      (interest: unknown): interest is string =>
-        typeof interest === "string" && allowedInterests.has(interest),
-    ) &&
-    new Set(value).size === value.length
-  )
-}
 
 app.use(express.json())
 
-app.get("/api/profile/interests", async (_request, response, next) => {
-  try {
+const profileInterestStore: ProfileInterestStore = {
+  getInterests: async () => {
     const profile = await prisma.studentProfile.findFirst({
       where: { user: { email: demoProfileEmail } },
       include: { interests: { include: { interest: true } } },
     })
 
-    if (!profile) {
-      response.status(404).json({ error: "Demo student profile not found." })
-      return
-    }
-
-    response.json({
-      interests: profile.interests.map(({ interest }) => interest.name),
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-app.put("/api/profile/interests", async (request, response, next) => {
-  try {
-    const requestInterests: unknown = request.body?.interests
-    if (!isInterestSelection(requestInterests)) {
-      response.status(400).json({
-        error: "Choose between 1 and 5 unique valid fields of interest.",
-      })
-      return
-    }
-    const selectedInterests = requestInterests
-
+    return profile?.interests.map(({ interest }) => interest.name) ?? null
+  },
+  replaceInterests: async (selectedInterests) => {
     const profile = await prisma.studentProfile.findFirst({
       where: { user: { email: demoProfileEmail } },
       select: { id: true },
     })
 
-    if (!profile) {
-      response.status(404).json({ error: "Demo student profile not found." })
-      return
-    }
+    if (!profile) return false
 
     const records = await prisma.interest.findMany({
       where: { name: { in: selectedInterests } },
@@ -98,12 +65,14 @@ app.put("/api/profile/interests", async (request, response, next) => {
         data: profileInterests,
       })
     })
+    return true
+  },
+}
 
-    response.json({ interests: selectedInterests })
-  } catch (error) {
-    next(error)
-  }
-})
+app.use(
+  "/api/profile/interests",
+  createProfileInterestsRouter(profileInterestStore),
+)
 
 app.get("/api/health/db", async (_request, response, next) => {
   try {

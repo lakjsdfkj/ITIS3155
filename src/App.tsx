@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Icon, { type IconName } from "./icons"
 import Feed from "./Feed"
 import Handbook from "./Handbook"
 import ProfileBuilder from "./ProfileBuilder"
 import RollingFeed from "./RollingFeed"
-import { type Interest } from "./data"
+import { interests, isInterestSelection, type Interest } from "./data"
+import { getPathwayNodes, pathwayNodes, type PathwayNode } from "./pathways"
 
 function Logo() {
   return (
@@ -25,63 +26,6 @@ const nav: [IconName, string][] = [
   ["book", "Skill library"],
   ["briefcase", "Opportunities"],
 ]
-
-const pathwayNodes = {
-  foundation: {
-    eyebrow: "Start here",
-    title: "AWS Certified Cloud Practitioner",
-    description:
-      "Build the cloud vocabulary HelixNova uses to store, process, and secure large genomic datasets.",
-    resources: ["AWS Cloud Essentials · 12 hours", "CLF-C02 practice exam"],
-  },
-  requirements: {
-    eyebrow: "Suggested certification",
-    title: "PCEP Python Programmer",
-    description:
-      "Validate the Python fundamentals used across the team’s bioinformatics scripts and pipeline utilities.",
-    resources: ["Python Institute prep · 18 hours", "PCEP coding practice"],
-  },
-  data: {
-    eyebrow: "Employer priority",
-    title: "Databricks Data Engineer Associate",
-    description:
-      "Learn to prepare and transform high-volume data with tools that map closely to modern genomic pipelines.",
-    resources: [
-      "Databricks learning plan · 24 hours",
-      "Lakehouse lab environment",
-    ],
-  },
-  systems: {
-    eyebrow: "Suggested certification",
-    title: "SAS Base Programming Specialist",
-    description:
-      "Strengthen the statistical programming and data preparation skills requested by the health-tech analytics team.",
-    resources: ["SAS exam prep · 30 hours", "Clinical data practice set"],
-  },
-  certification: {
-    eyebrow: "Specialized option",
-    title: "NVIDIA Genomics AI Certificate",
-    description:
-      "Explore accelerated genomics workflows and AI methods relevant to the company’s newest genomic data client.",
-    resources: ["Genomics AI workshop · 8 hours", "GPU pipeline lab"],
-  },
-  job: {
-    eyebrow: "Advanced certification",
-    title: "AWS Data Engineer Associate",
-    description:
-      "Demonstrate that you can build and monitor reliable data pipelines after completing the foundational cloud route.",
-    resources: ["DEA-C01 study plan · 40 hours", "Genomic pipeline capstone"],
-  },
-  product: {
-    eyebrow: "Compliance option",
-    title: "CITI Biomedical Data & HIPAA",
-    description:
-      "Learn the privacy and research standards that shape how sensitive genomic and health data can be handled.",
-    resources: ["CITI training · 4 hours", "HIPAA scenario assessment"],
-  },
-} as const
-
-type PathwayNode = keyof typeof pathwayNodes
 
 const skills = [
   { name: "Python programming", value: 74, tone: "indigo" },
@@ -115,6 +59,8 @@ function App() {
   const [selectedInterests, setSelectedInterests] = useState<Interest[]>([
     "Bioinformatics",
   ])
+  const [loadingInterests, setLoadingInterests] = useState(true)
+  const [interestLoadError, setInterestLoadError] = useState("")
   const [skillId, setSkillId] = useState("python")
   const [cameFrom, setCameFrom] = useState("News Feed")
   const [saved, setSaved] = useState(false)
@@ -123,6 +69,63 @@ function App() {
   const [editingPath, setEditingPath] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const searchRef = useRef<HTMLInputElement>(null)
+  const pathwayNodeIds = useMemo(
+    () => getPathwayNodes(selectedInterests),
+    [selectedInterests],
+  )
+  const pathwayConnections = useMemo(
+    () =>
+      pathwayNodeIds.slice(1).map((to, index) => {
+        const from = pathwayNodeIds[index]
+        if (!from) throw new Error("Pathway node sequence is invalid.")
+        return { from, to }
+      }),
+    [pathwayNodeIds],
+  )
+
+  useEffect(() => {
+    if (!pathwayNodeIds.includes(selectedNode)) {
+      setSelectedNode(pathwayNodeIds[0] ?? "foundation")
+    }
+  }, [pathwayNodeIds, selectedNode])
+
+  useEffect(() => {
+    let active = true
+
+    fetch("/api/profile/interests")
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          interests?: unknown
+          error?: string
+        }
+        if (!response.ok) {
+          throw new Error(result.error ?? "Could not load saved interests.")
+        }
+        if (!isInterestSelection(result.interests)) {
+          throw new Error("The saved interests response was invalid.")
+        }
+        return result.interests
+      })
+      .then((savedInterests) => {
+        if (active) setSelectedInterests(savedInterests)
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setInterestLoadError(
+            error instanceof Error
+              ? error.message
+              : "Could not load saved interests.",
+          )
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingInterests(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -152,17 +155,19 @@ function App() {
       body: JSON.stringify({ interests }),
     })
     const result = (await response.json()) as {
-      interests?: Interest[]
+      interests?: unknown
       error?: string
     }
     if (!response.ok) {
       throw new Error(result.error ?? "Could not save your fields of interest.")
     }
-    if (!Array.isArray(result.interests)) {
+    if (!isInterestSelection(result.interests)) {
       throw new Error("The saved interests response was invalid.")
     }
+    setInterestLoadError("")
     setSelectedInterests(result.interests)
   }
+  const firstPathwayNode = pathwayNodes[pathwayNodeIds[0] ?? "foundation"]
   const isOverview = ![
     "News Feed",
     "Skill library",
@@ -320,6 +325,8 @@ function App() {
               selectedInterests={selectedInterests}
               onInterestsChange={setSelectedInterests}
               onSave={saveInterests}
+              loadingInterests={loadingInterests}
+              interestLoadError={interestLoadError}
             />
           )}
           {isOverview && (
@@ -392,13 +399,10 @@ function App() {
                   <div className="path-map-wrap">
                     <div className="path-legend">
                       <span>
-                        <i className="complete-dot" /> Complete
+                        <i className="current-dot" /> Start
                       </span>
                       <span>
-                        <i className="current-dot" /> In progress
-                      </span>
-                      <span>
-                        <i /> Suggested
+                        <i /> Recommended steps
                       </span>
                     </div>
                     <div className="path-map">
@@ -408,66 +412,46 @@ function App() {
                         preserveAspectRatio="none"
                         aria-hidden="true"
                       >
-                        <path
-                          className="line-complete"
-                          d="M55 140 C110 140 120 140 175 140"
-                        />
-                        <path
-                          className="line-active"
-                          d="M215 140 C265 140 275 72 330 72"
-                        />
-                        <path
-                          className="line-active"
-                          d="M370 72 C420 72 420 140 470 140"
-                        />
-                        <path
-                          className="line-active"
-                          d="M510 140 C555 140 560 140 625 140"
-                        />
-                        <path d="M215 140 C265 140 275 218 330 218" />
-                        <path d="M370 218 C430 218 425 155 470 140" />
+                        {pathwayConnections.map(({ from, to }) => {
+                          const start = pathwayNodes[from].position
+                          const end = pathwayNodes[to].position
+                          const controlX = (start.x + end.x) / 2
+                          return (
+                            <path
+                              key={`${from}-${to}`}
+                              className="line-active"
+                              d={`M ${start.x} ${start.y} C ${controlX} ${start.y}, ${controlX} ${end.y}, ${end.x} ${end.y}`}
+                            />
+                          )
+                        })}
                       </svg>
-                      {[
-                        ["foundation", "1", "AWS Cloud", "current"],
-                        ["requirements", "2", "PCEP Python", "suggested"],
-                        ["data", "3", "Databricks", "suggested"],
-                        ["systems", "4", "SAS Base", "suggested"],
-                        ["job", "5", "AWS Data", "goal"],
-                        ["product", "A", "CITI + HIPAA", "alternate"],
-                      ].map(([id, number, label, state]) => (
-                        <button
-                          key={id}
-                          className={`path-node node-${id} ${state} ${
-                            selectedNode === id ? "selected" : ""
-                          }`}
-                          onClick={() => setSelectedNode(id as PathwayNode)}
-                        >
-                          <span>
-                            {state === "complete" ? (
-                              <Icon name="check" size={17} />
-                            ) : (
-                              number
-                            )}
-                          </span>
-                          <strong>{label}</strong>
-                          {state === "suggested" && <small>Suggested</small>}
-                          {editingPath && state !== "complete" && (
-                            <b aria-hidden="true">×</b>
-                          )}
-                        </button>
-                      ))}
-                      <span className="recommended-label">
-                        <Icon name="sparkles" size={14} /> Best match
-                      </span>
-                      <button
-                        className={`path-node node-certification compact ${
-                          selectedNode === "certification" ? "selected" : ""
-                        }`}
-                        onClick={() => setSelectedNode("certification")}
-                      >
-                        <span>+</span>
-                        <strong>Genomics AI</strong>
-                      </button>
+                      {pathwayNodeIds.map((id, index) => {
+                        const node = pathwayNodes[id]
+                        const state =
+                          index === 0
+                            ? "current"
+                            : index === pathwayNodeIds.length - 1
+                              ? "goal"
+                              : "suggested"
+                        return (
+                          <button
+                            key={id}
+                            className={`path-node ${state} ${
+                              selectedNode === id ? "selected" : ""
+                            }`}
+                            style={{
+                              left: `calc(${node.position.left}% - 40px)`,
+                              top: node.position.top,
+                            }}
+                            onClick={() => setSelectedNode(id)}
+                          >
+                            <span>{index + 1}</span>
+                            <strong>{node.label}</strong>
+                            {state === "suggested" && <small>Suggested</small>}
+                            {editingPath && <b aria-hidden="true">×</b>}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -508,9 +492,11 @@ function App() {
                     across {selectedInterests.length} selected field
                     {selectedInterests.length === 1 ? "" : "s"} in your profile.
                   </span>
-                  <button onClick={() => setSelectedNode("product")}>
-                    Compare compliance route
-                  </button>
+                  {pathwayNodeIds.includes("product") && (
+                    <button onClick={() => setSelectedNode("product")}>
+                      View compliance step
+                    </button>
+                  )}
                 </div>
               </section>
 
@@ -523,18 +509,17 @@ function App() {
                     <span className="match-pill">Top priority</span>
                   </div>
                   <p className="eyebrow">Next best step</p>
-                  <h2>Start AWS Cloud Practitioner</h2>
+                  <h2>Start {firstPathwayNode.title}</h2>
                   <p className="focus-description">
-                    HelixNova employees identified cloud fluency as the most
-                    useful missing signal for their bioinformatics data
-                    internship.
+                    {firstPathwayNode.description}
                   </p>
                   <div className="focus-meta">
                     <span>
                       <Icon name="clock" size={16} /> 12 hours over 3 weeks
                     </span>
                     <span>
-                      <Icon name="building" size={16} /> Suggested by HelixNova
+                      <Icon name="building" size={16} /> Recommended for{" "}
+                      {selectedInterests.join(", ")}
                     </span>
                   </div>
                   <div className="focus-actions">

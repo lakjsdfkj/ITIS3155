@@ -93,7 +93,6 @@ h1 { font-size: clamp(27px, 3vw, 38px); line-height: 1.2; margin: 7px 0 8px; }
 .path-legend { display: flex; justify-content: center; gap: 18px; color: #8b9691; font-size: 9px; margin-bottom: 3px; }
 .path-legend span { display: flex; align-items: center; gap: 5px; }
 .path-legend i { display: block; width: 7px; height: 7px; border-radius: 50%; background: #fff; border: 1px solid #7eaa99; }
-.path-legend .complete-dot { background: #51af8c; border-color: #51af8c; }
 .path-legend .current-dot { background: #176b4d; border-color: #176b4d; box-shadow: 0 0 0 3px #dcefe7; }
 .path-map { position: relative; min-width: 420px; height: 280px; }
 .path-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -110,17 +109,7 @@ h1 { font-size: clamp(27px, 3vw, 38px); line-height: 1.2; margin: 7px 0 8px; }
 .path-node.complete > span { background: #4ead89; border-color: #4ead89; color: #fff; }
 .path-node.current > span { background: #176b4d; border-color: #176b4d; color: #fff; box-shadow: 0 0 0 5px #e0f1ea; }
 .path-node.suggested > span, .path-node.goal > span { border-color: #4a987a; color: #176b4d; background: #f8fcfa; }
-.path-node.alternate { opacity: .72; }
 .path-node.selected strong { color: #155b42; }
-.node-foundation { left: calc(8% - 40px); top: 112px; }
-.node-requirements { left: calc(29% - 40px); top: 112px; }
-.node-data { left: calc(52% - 40px); top: 44px; }
-.node-systems { left: calc(73% - 40px); top: 112px; }
-.node-job { left: calc(95% - 40px); top: 112px; }
-.node-product { left: calc(52% - 40px); top: 190px; }
-.node-certification { left: calc(73% - 40px); top: 205px; opacity: .8; }
-.path-node.compact > span { width: 30px; height: 30px; border-radius: 9px; }
-.recommended-label { position: absolute; top: 8px; left: 43%; color: #176b4d; display: flex; align-items: center; gap: 4px; font-size: 8px; font-weight: 700; }
 .node-detail { border-left: 1px solid #e7ebe9; padding-left: 21px; display: flex; flex-direction: column; }
 .detail-kicker { color: #1f7656; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; font-weight: 800; }
 .node-detail h3 { font-size: 16px; margin-top: 7px; }
