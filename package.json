@@ -8,6 +8,8 @@
     "dev:api": "tsx watch server/index.ts",
     "dev:web": "vite",
     "test": "tsx --test tests/*.test.ts",
+    "test:vitest": "prisma migrate deploy && vitest run --config vitest.config.ts",
+    "test:vitest:watch": "prisma migrate deploy && vitest --config vitest.config.ts",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt",
@@ -45,6 +47,7 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.7.0",
-    "vite": "^8.0.5"
+    "vite": "^8.0.5",
+    "vitest": "^5.1.0"
   }
 }

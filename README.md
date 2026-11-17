@@ -67,3 +67,11 @@ opportunity endpoints remain read-only. Authentication, uploads, and production
 database configuration are not included. See
 [Issue #3 verification](docs/issue-3-verification.md) for the field-to-pathway
 mapping and test results.
+
+## [ADDED] Vitest database tests
+
+Run `pnpm test:vitest` to apply pending development migrations and execute the
+Vitest/Prisma integration tests. They verify profile creation, multiple student
+fields of interest, and rejection of an invalid interest relation. Tests use
+temporary records and clean them afterward. Use `pnpm test:vitest:watch` for
+watch mode. The existing `pnpm test` continues to run the Node test suite.
